@@ -1,0 +1,16 @@
+{
+  "budget_usd": 500,
+  "model_server": {"allowed": true},
+  "e2b_proxy": {"allowed": true, "max_sandboxes": 128},
+  "benchmark_server": {"allowed": true},
+  "rollout_server": {"allowed": true, "models": ["qwen3.8-27b"]},
+  "train_server": {
+    "allowed": true,
+    "allow": "*",
+    "lock": {
+      "base_model": "Qwen/Qwen3.8-27B",
+      "dataset": "custom",
+      "renderer": "qwen3_8_xhigh_reasoning"
+    }
+  }
+}

@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rsiwatch</title>
+<style>
+  :root {
+    --bg: #0a0d13; --panel: #0e1219; --panel-2: #141a25; --raise: #1a2231;
+    --line: #1f2839; --fg: #d9e2ef; --dim: #8b98ad; --faint: #5a6780;
+    --run: #4da3ff; --ok: #42c268; --err: #ff5d5d; --stall: #e2a93b; --pend: #667184;
+    --think: #a98ff7; --prompt: #d9b45b; --tool: #7aa7d8;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 12px/1.55 var(--mono);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 1px solid var(--run); outline-offset: 1px; }
+
+  /* ── header ─────────────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px; padding: 8px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: none;
+  }
+  header h1 { font-size: 13px; margin: 0; font-weight: 700; letter-spacing: 2px; }
+  header h1 i { font-style: normal; color: var(--run); }
+  #live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); }
+  #live .d { width: 7px; height: 7px; border-radius: 50%; background: var(--pend); }
+  #live.on .d { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  #dir { color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis;
+         white-space: nowrap; max-width: 30vw; }
+  .totals { margin-left: auto; display: flex; gap: 16px; align-items: baseline; flex: none; }
+  #t-status { font-size: 11px; }
+  #t-status b { font-weight: 600; }
+  .stat { display: flex; gap: 6px; align-items: baseline; font-size: 11px; color: var(--faint); }
+  .stat b { font-size: 13px; color: var(--fg); font-weight: 600; }
+
+  /* ── layout ─────────────────────────────────────────────── */
+  main { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+  #sidebar { border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
+  #trialpane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+  /* ── sidebar ────────────────────────────────────────────── */
+  .job { border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .jh { display: flex; align-items: baseline; gap: 8px; padding: 9px 12px 1px; }
+  .jh .n { font-weight: 700; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jh .c { margin-left: auto; color: var(--faint); font-size: 11px; flex: none; }
+  .jsub { padding: 0 12px 5px; font-size: 10.5px; color: var(--faint);
+          display: flex; gap: 10px; overflow: hidden; white-space: nowrap; }
+  /* The task label gives way; the counts are short and must stay readable. */
+  .jsub > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .jsub > :first-child ~ * { flex: none; }
+  .jsub > :first-child + * { margin-left: auto; }
+  .jsub .s-running { color: var(--run); } .jsub .s-stalled { color: var(--stall); }
+  .jsub .s-verifying { color: var(--run); }
+  .jsub .s-errored { color: var(--err); } .jsub .s-completed { color: var(--ok); }
+  .trial {
+    padding: 4px 12px 4px 24px; cursor: pointer; position: relative;
+    display: flex; align-items: baseline; gap: 8px; border-left: 2px solid transparent;
+    font-size: 11.5px; white-space: nowrap;
+  }
+  .trial:hover { background: var(--panel-2); }
+  .trial.sel { background: var(--raise); border-left-color: var(--run); }
+  .trial .dot { position: absolute; left: 11px; top: 10px; width: 6px; height: 6px; border-radius: 50%; }
+  .trial .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .trial .mid { color: var(--faint); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis;
+                flex: 0 999 auto; min-width: 0; }
+  .trial .rt { margin-left: auto; font-size: 10.5px; flex: none; }
+  .running .dot { background: var(--run); animation: pulse 1.6s ease-in-out infinite; }
+  .completed .dot { background: var(--ok); } .errored .dot { background: var(--err); }
+  .stalled .dot { background: var(--stall); } .pending .dot { background: var(--pend); }
+  .verifying .dot { background: var(--run); }
+  .trial.running .rt { color: var(--run); } .trial.stalled .rt { color: var(--stall); }
+  .trial.completed .rt { color: var(--ok); } .trial.errored .rt { color: var(--err); }
+  .trial.pending .rt { color: var(--faint); } .trial.verifying .rt { color: var(--run); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  /* ── trial header ───────────────────────────────────────── */
+  #dhead { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: var(--panel); flex: none; }
+  #dhead .row1 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  #dhead h2 { margin: 0; font-size: 13px; font-weight: 700; }
+  #dhead h2 .jn { color: var(--faint); font-weight: 400; }
+  .pill { font-size: 10.5px; padding: 1px 8px; border-radius: 9px; font-weight: 600; }
+  .pill.running { background: #11304f; color: var(--run); }
+  .pill.completed { background: #0f3320; color: var(--ok); }
+  .pill.errored { background: #3d1518; color: var(--err); }
+  .pill.stalled { background: #3a2d10; color: var(--stall); }
+  .pill.pending { background: #202634; color: var(--pend); }
+  .pill.verifying { background: #11304f; color: var(--run); }
+  .pill.reward { background: #0f3320; color: var(--ok); }
+  .pill.errtype { background: #3d1518; color: var(--err); }
+  .vitals { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px;
+            font-size: 11px; color: var(--faint); }
+  .vitals b { color: var(--fg); font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .tag { background: var(--panel-2); border-radius: 4px; padding: 0 7px; font-size: 10.5px; color: var(--dim); }
+  .tag b { color: var(--fg); font-weight: 600; }
+  #spath { color: var(--faint); font-size: 10.5px; cursor: pointer; max-width: 46ch;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: auto; }
+  #spath:hover { color: var(--dim); }
+
+  /* ── toolbar ────────────────────────────────────────────── */
+  #toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: none; font-size: 11px;
+  }
+  .chip { padding: 2px 9px; border-radius: 10px; background: var(--panel-2); color: var(--dim); }
+  .chip.on { background: var(--raise); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line); }
+  .chip.warn.on { color: var(--err); box-shadow: inset 0 0 0 1px #52272b; }
+  #q {
+    background: var(--panel-2); border: 1px solid transparent; border-radius: 10px;
+    color: var(--fg); font: 11px var(--mono); padding: 2px 10px; width: 180px;
+  }
+  #q::placeholder { color: var(--faint); }
+  #qn { color: var(--faint); min-width: 7ch; }
+  #follow { margin-left: auto; padding: 2px 10px; border-radius: 10px; font-weight: 600;
+            background: var(--run); color: #06121f; }
+  #follow.off { background: var(--panel-2); color: var(--dim); }
+
+  /* ── feed ───────────────────────────────────────────────── */
+  #wrap { flex: 1; position: relative; min-height: 0; }
+  #scroller { position: absolute; inset: 0 18px 0 0; overflow-y: auto; }
+  #feed { padding: 12px 16px 60px; display: flex; flex-direction: column; gap: 6px; max-width: 1080px; }
+  #earlier {
+    align-self: center; color: var(--dim); background: var(--panel-2);
+    border-radius: 12px; padding: 3px 14px; font-size: 11px; margin-bottom: 4px;
+  }
+  #earlier:hover { color: var(--fg); }
+  .gap { text-align: center; color: var(--faint); font-size: 10.5px; padding: 2px 0; user-select: none; }
+  .gap::before, .gap::after { content: " ── "; color: var(--line); }
+
+  .ev { border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+        overflow: hidden; content-visibility: auto; contain-intrinsic-size: auto 46px; }
+  .ev > .h { padding: 5px 10px; font-size: 11px; display: flex; align-items: baseline; gap: 8px;
+             cursor: pointer; user-select: none; white-space: nowrap; }
+  .ev > .h .k { font-weight: 700; flex: none; }
+  .ev > .h .g { color: var(--dim); overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .ev > .h .st { flex: none; font-weight: 600; }
+  .ev > .h .t { flex: none; color: var(--faint); font-size: 10px; }
+  .ev .b { border-top: 1px solid var(--line); }
+  .ev.collapsed .b { display: none; }
+  .ev pre { margin: 0; padding: 8px 11px; font: 11px/1.55 var(--mono);
+            white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; color: #c4cede; }
+  .ev .args { padding: 0 11px 6px; color: var(--faint); font-size: 10.5px;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev .rline { display: flex; gap: 8px; align-items: baseline; padding: 4px 11px;
+               border-top: 1px dashed var(--line); color: var(--faint); font-size: 10.5px; }
+  .ev .rline .ok { color: var(--ok); } .ev .rline .bad { color: var(--err); }
+  .ev pre.out { color: #9fb0c8; background: #0b0f16; }
+
+  .ev.tool > .h .k { color: var(--tool); }
+  .ev.tool.err { border-color: #4a2226; }
+  .ev.tool.err > .h .k { color: var(--err); }
+  .ev.tool.pending > .h .st { color: var(--run); }
+  .ev.tool.pending > .h .st::after { content: "···"; animation: dots 1.2s steps(4) infinite; }
+  @keyframes dots { 0% { clip-path: inset(0 100% 0 0) } 100% { clip-path: inset(0 -1ch 0 0) } }
+
+  .ev.text { border-left: 2px solid var(--run); }
+  .ev.text > .h .k { color: var(--fg); }
+  .ev.text pre { color: var(--fg); font-size: 11.5px; }
+  .ev.thinking { border-style: dashed; background: transparent; }
+  .ev.thinking > .h .k { color: var(--think); }
+  .ev.thinking pre { color: var(--dim); }
+  .ev.user { border-left: 2px solid var(--prompt); }
+  .ev.user > .h .k { color: var(--prompt); }
+  .ev.flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0% { background: var(--raise); } 100% { background: var(--panel); } }
+
+  #feed.hide-think > .ev.thinking { display: none; }
+  #feed.hide-tools > .ev.tool { display: none; }
+  #feed.only-err > .ev:not(.err), #feed.only-err > .gap { display: none; }
+  .ev.smiss { display: none !important; }
+
+  #resume {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px;
+    background: var(--run); color: #06121f; font-weight: 600; font-size: 11px;
+    border-radius: 14px; padding: 5px 16px; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none;
+  }
+  #wrap.paused #resume { display: block; }
+
+  /* ── rail ───────────────────────────────────────────────── */
+  #rail { position: absolute; top: 0; right: 0; width: 18px; height: 100%; cursor: pointer;
+          background: var(--panel); border-left: 1px solid var(--line); }
+  .empty { padding: 60px 20px; text-align: center; color: var(--faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .running .dot, .ev.tool.pending > .h .st::after, .ev.flash { animation: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>rsi<i>watch</i></h1>
+  <div id="live"><span class="d"></span><span id="livetext">connecting</span></div>
+  <span id="dir"></span>
+  <div class="totals">
+    <span id="t-status"></span>
+    <div class="stat"><b id="t-tok">–</b><span>tok</span></div>
+    <div class="stat"><b id="t-cache">–</b><span>cache</span></div>
+    <div class="stat"><b id="t-cost">–</b><span>cost</span></div>
+  </div>
+</header>
+<main>
+  <div id="sidebar"></div>
+  <div id="trialpane">
+    <div id="dhead" hidden></div>
+    <div id="toolbar" hidden>
+      <button class="chip on" id="f-think">thinking</button>
+      <button class="chip on" id="f-tools">tools</button>
+      <button class="chip warn" id="f-err">errors only</button>
+      <input id="q" placeholder="filter steps…  ( / )">
+      <span id="qn"></span>
+      <button id="follow">following</button>
+    </div>
+    <div id="wrap">
+      <div id="scroller"><div class="empty">Select a trial — or press j / k to move between them.</div></div>
+      <canvas id="rail" hidden></canvas>
+      <button id="resume">⤓ resume live tail</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? "–" : n >= 1e9 ? (n/1e9).toFixed(2)+"B"
+  : n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
+const usd = n => n == null ? "–" : "$" + (n < 1 ? n.toFixed(3) : n.toFixed(2));
+const pct = n => n == null ? "–" : (n*100).toFixed(0) + "%";
+const esc = s => (s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const hdur = ms => ms == null ? "" : ms < 1000 ? Math.round(ms) + "ms" : ms < 60000 ? Math.round(ms/1000) + "s"
+  : ms < 3.6e6 ? Math.floor(ms/60000) + "m" + String(Math.round(ms/1000) % 60).padStart(2, "0") + "s"
+  : Math.floor(ms/3.6e6) + "h" + String(Math.floor(ms/60000) % 60).padStart(2, "0") + "m";
+const ago = s => s == null ? "" : hdur(s * 1000);
+const hclock = ts => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const hm = d.toTimeString().slice(0, 8);
+  return d.toDateString() === new Date().toDateString() ? hm
+    : `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${hm.slice(0,5)}`;
+};
+
+const KIND_LABEL = { thinking: "think", text: "assistant", user: "prompt" };
+const GAP_SECONDS = 300;
+
+let sel = null;              // {job, trial}
+let follow = true;           // pinned to the live tail
+let firstSeq = 0, lastSeq = 0;  // bounds of the loaded window
+let latestSeq = 0;
+let spine = "";              // one char per event, index i ↔ seq i+1
+let pendingCalls = new Map();   // tool_use_id → card awaiting its result
+let prevStamp = null;        // last appended event's timestamp, for gap markers
+let inflight = false;
+
+/* ── overview / sidebar ───────────────────────────────────── */
+
+// Harbor names a trial "<task name truncated to 32>__<7 random chars>", so the suffix
+// is what follows the last "__" -- task names of their own contain "__".
+const shortName = name => {
+  const cut = name.lastIndexOf("__");
+  return cut > 0 ? "#" + name.slice(cut + 2) : name;
+};
+
+const trialRight = t =>
+  t.status === "completed" ? (t.reward != null ? "r=" + t.reward : "done")
+  : t.status === "errored" ? (t.error_type ?? "error")
+  : t.status === "pending" ? "–"
+  : t.status === "verifying" ? "verifying"
+  : "idle " + ago(t.idle_seconds);
+
+function renderSidebar(data) {
+  const sb = $("sidebar");
+  const keep = sb.scrollTop;
+  sb.innerHTML = data.jobs.map(job => {
+    const tasks = new Set(job.trials.map(t => (t.task ?? "").split("/").pop()));
+    const taskLabel = tasks.size === 1 ? [...tasks][0] : `${tasks.size} tasks`;
+    const counts = Object.entries(job.status_counts)
+      .map(([s, n]) => `<span class="s-${s}">${n} ${s}</span>`).join(" ");
+    return `
+    <div class="job">
+      <div class="jh"><span class="n" title="${esc(job.name)}">${esc(job.name)}</span>
+        <span class="c">${fmt(job.usage.total)} · ${usd(job.usage.cost_usd)}</span></div>
+      <div class="jsub"><span>${esc(taskLabel)}</span>${counts}</div>
+      ${job.trials.map(tr => `
+        <div class="trial ${tr.status}" data-job="${esc(job.name)}" data-trial="${esc(tr.name)}">
+          <span class="dot"></span>
+          <span class="nm" title="${esc(tr.name)}">${esc(shortName(tr.name))}</span>
+          <span class="mid">${tr.n_tool_calls} tools · ${fmt(tr.usage?.total)}</span>
+          <span class="rt">${esc(trialRight(tr))}</span>
+        </div>`).join("")}
+    </div>`;
+  }).join("") || `<div class="empty">No jobs found.</div>`;
+  sb.scrollTop = keep;
+
+  for (const el of sb.querySelectorAll(".trial")) {
+    if (sel && el.dataset.job === sel.job && el.dataset.trial === sel.trial) el.classList.add("sel");
+    // The sidebar is rebuilt on every tick, so a click whose mouseup lands on the
+    // replacement node is never dispatched; mousedown fires before the rebuild can.
+    el.onmousedown = () => select(el.dataset.job, el.dataset.trial);
+  }
+}
+
+async function loadOverview() {
+  const data = await (await fetch("/api/overview")).json();
+  const t = data.totals;
+  $("t-tok").textContent = fmt(t.total);
+  $("t-cost").textContent = usd(t.cost_usd);
+  const denom = t.cache_read + t.input + t.cache_write;
+  $("t-cache").textContent = denom ? pct(t.cache_read / denom) : "–";
+  $("dir").textContent = data.jobs_dir;
+  $("dir").title = data.jobs_dir;
+  $("t-status").innerHTML = ["running", "stalled", "errored"]
+    .filter(s => data.status_counts[s])
+    .map(s => `<b class="s" style="color:var(--${{running:"run",stalled:"stall",errored:"err"}[s]})">` +
+              `${data.status_counts[s]} ${s}</b>`).join(" · ");
+  renderSidebar(data);
+
+  if (!sel && data.jobs.length) {
+    const trials = data.jobs.flatMap(j => j.trials.map(t => [j.name, t]));
+    const pick = trials.find(([, t]) => t.status === "running") ?? trials[0];
+    if (pick) select(pick[0], pick[1].name);
+  }
+}
+
+/* ── trial header ─────────────────────────────────────────── */
+
+function renderHead(d) {
+  const s = d.summary, u = s.usage ?? {}, t = d.trial;
+  const elapsed = s.first_timestamp && s.last_timestamp
+    ? hdur(new Date(s.last_timestamp) - new Date(s.first_timestamp)) : null;
+  const tags = Object.entries(s.tool_counts ?? {})
+    .map(([k, v]) => `<span class="tag">${esc(k)} <b>${v}</b></span>`).join("");
+  $("dhead").hidden = false;
+  $("toolbar").hidden = false;
+  $("dhead").innerHTML = `
+    <div class="row1">
+      <h2><span class="jn">${esc(t.job)} / </span>${esc(t.name)}</h2>
+      <span class="pill ${t.status}">${t.status}</span>
+      ${t.reward != null ? `<span class="pill reward">reward ${t.reward}</span>` : ""}
+      ${t.error_type ? `<span class="pill errtype">${esc(t.error_type)}</span>` : ""}
+      <span id="spath" title="${esc(d.session_path ?? "")} — click to copy">${esc(
+        d.session_path ? "…/" + d.session_path.split("/").slice(-2).join("/") : "")}</span>
+    </div>
+    <div class="vitals">
+      <span title="${esc(s.model ?? "")}">model <b>${esc((s.model ?? t.model ?? "?").replace(/^.*?(opus|sonnet|haiku)/, "$1"))}</b></span>
+      ${s.first_timestamp ? `<span>started <b>${hclock(s.first_timestamp)}</b></span>` : ""}
+      ${elapsed ? `<span>elapsed <b>${elapsed}</b></span>` : ""}
+      ${t.idle_seconds != null && (t.status === "running" || t.status === "stalled")
+        ? `<span>idle <b>${ago(t.idle_seconds)}</b></span>` : ""}
+      <span>msgs <b>${s.n_messages ?? 0}</b></span>
+      <span>tools <b>${s.n_tool_calls ?? 0}</b>${s.n_tool_errors ? ` / <b style="color:var(--err)">${s.n_tool_errors} err</b>` : ""}</span>
+      <span>in <b>${fmt(u.input)}</b> out <b>${fmt(u.output)}</b></span>
+      <span>cache <b>${fmt(u.cache_read)}</b> @ <b>${pct(u.cache_hit_rate)}</b></span>
+      <span>cost <b>${usd(u.cost_usd)}</b></span>
+    </div>
+    ${tags ? `<div class="tags">${tags}</div>` : ""}`;
+  const path = $("spath");
+  if (path && d.session_path) path.onclick = () => {
+    navigator.clipboard.writeText(d.session_path);
+    const shown = path.textContent;
+    path.textContent = "copied ✓";
+    setTimeout(() => { path.textContent = shown; }, 900);
+  };
+}
+
+/* ── feed rendering ───────────────────────────────────────── */
+
+// Server bodies end with "\n\n· {json}" when the tool had secondary args.
+function splitMeta(body) {
+  const i = body.lastIndexOf("\n\n· ");
+  if (i === -1) return [body, null, null];
+  const raw = body.slice(i + 4);
+  try { return [body.slice(0, i), JSON.parse(raw), raw]; }
+  catch { return [body.slice(0, i), null, raw]; }
+}
+
+const gist = s => {
+  const line = (s ?? "").split("\n").find(l => l.trim()) ?? "";
+  return line.length > 120 ? line.slice(0, 120) + "…" : line;
+};
+
+function toolCard(e) {
+  const [input, meta, rawMeta] = splitMeta(e.body);
+  const div = document.createElement("div");
+  div.className = "ev tool pending";
+  div.dataset.seq = e.seq;
+  const labelKey = meta && ["description", "file_path", "url"].find(k => typeof meta[k] === "string");
+  const label = labelKey ? meta[labelKey] : gist(input);
+  const rest = meta
+    ? Object.entries(meta).filter(([k]) => k !== labelKey)
+        .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("  ")
+    : rawMeta;
+  div.innerHTML =
+    `<div class="h"><span class="k">${esc(e.name ?? "?")}</span>` +
+    `<span class="g">${esc(label)}</span><span class="st"></span>` +
+    `<span class="t">${hclock(e.timestamp)}</span></div>` +
+    `<div class="b"><pre class="in">${esc(input)}</pre>` +
+    (rest ? `<div class="args">${esc(rest)}</div>` : "") +
+    `<div class="rline" hidden></div><pre class="out" hidden></pre></div>`;
+  if (input.length > 260) div.classList.add("collapsed");
+  return div;
+}
+
+function attachResult(card, e) {
+  card.classList.remove("pending");
+  if (e.is_error) { card.classList.add("err"); card.classList.remove("collapsed"); }
+  const st = card.querySelector(".h .st");
+  st.textContent = e.is_error ? "✗" : "✓";
+  st.className = "st " + (e.is_error ? "bad" : "ok");
+  st.style.color = e.is_error ? "var(--err)" : "var(--ok)";
+  const tEl = card.querySelector(".h .t");
+  if (e.duration_ms != null) tEl.textContent = tEl.textContent + " · " + hdur(e.duration_ms);
+  const rline = card.querySelector(".rline");
+  rline.hidden = false;
+  rline.innerHTML = `<span class="${e.is_error ? "bad" : "ok"}">↳ ${e.is_error ? "failed" : "ok"}</span>` +
+    (e.duration_ms != null ? `<span>${hdur(e.duration_ms)}</span>` : "");
+  const out = card.querySelector("pre.out");
+  if (e.body.trim()) { out.hidden = false; out.textContent = e.body; }
+  const total = (card.querySelector("pre.in").textContent.length + e.body.length);
+  if (total > 700 && !e.is_error) card.classList.add("collapsed");
+}
+
+function proseCard(e) {
+  const div = document.createElement("div");
+  div.className = "ev " + e.kind;
+  div.dataset.seq = e.seq;
+  const label = e.kind === "tool_result" ? (e.name ?? "result") : (KIND_LABEL[e.kind] ?? e.kind);
+  div.innerHTML =
+    `<div class="h"><span class="k">${esc(label)}</span><span class="g">${esc(gist(e.body))}</span>` +
+    `<span class="t">${hclock(e.timestamp)}</span></div>` +
+    `<div class="b"><pre>${esc(e.body)}</pre></div>`;
+  if (e.kind === "thinking" || e.kind === "user" || e.body.length > 2500) div.classList.add("collapsed");
+  return div;
+}
+
+function buildCards(events, sink) {
+  let stamp = sink.prevStamp ?? null;
+  for (const e of events) {
+    if (e.kind === "tool_result" && e.tool_use_id && pendingCalls.has(e.tool_use_id)) {
+      attachResult(pendingCalls.get(e.tool_use_id), e);
+      pendingCalls.delete(e.tool_use_id);
+      stamp = e.timestamp ?? stamp;
+      continue;
+    }
+    if (stamp && e.timestamp && (new Date(e.timestamp) - new Date(stamp)) > GAP_SECONDS * 1000) {
+      const g = document.createElement("div");
+      g.className = "gap";
+      g.textContent = hdur(new Date(e.timestamp) - new Date(stamp)) + " quiet";
+      sink.nodes.push(g);
+    }
+    stamp = e.timestamp ?? stamp;
+    const card = e.kind === "tool_use" ? toolCard(e) : proseCard(e);
+    if (e.kind === "tool_use" && e.tool_use_id) pendingCalls.set(e.tool_use_id, card);
+    card.querySelector(".h").onclick = () => card.classList.toggle("collapsed");
+    sink.nodes.push(card);
+  }
+  sink.prevStamp = stamp;
+}
+
+function applySearch(scope) {
+  const q = $("q").value.trim().toLowerCase();
+  const cards = (scope ?? $("scroller")).querySelectorAll?.(".ev") ?? [];
+  let hits = 0;
+  for (const card of cards) {
+    const miss = q && !card.textContent.toLowerCase().includes(q);
+    card.classList.toggle("smiss", miss);
+    if (q && !miss) hits++;
+  }
+  $("qn").textContent = q ? hits + " hit" + (hits === 1 ? "" : "s") : "";
+}
+
+/* ── window loading ───────────────────────────────────────── */
+
+async function fetchSlice(params) {
+  const qs = new URLSearchParams(params).toString();
+  const r = await fetch(`/api/jobs/${encodeURIComponent(sel.job)}/trials/${encodeURIComponent(sel.trial)}?${qs}`);
+  return r.ok ? r.json() : null;
+}
+
+function resetFeed() {
+  $("scroller").innerHTML =
+    `<button id="earlier" hidden></button><div id="feed"></div>`;
+  $("earlier").onclick = loadEarlier;
+  syncFilters();
+  firstSeq = 0; lastSeq = 0; prevStamp = null;
+  pendingCalls = new Map();
+}
+
+function syncEarlier() {
+  const btn = $("earlier");
+  if (!btn) return;
+  btn.hidden = firstSeq <= 1;
+  if (!btn.hidden) btn.textContent = `↑ ${firstSeq - 1} earlier steps — load`;
+}
+
+function absorb(d, { prepend = false } = {}) {
+  renderHead(d);
+  spine = d.spine ?? "";
+  latestSeq = d.latest_seq ?? 0;
+  drawRail();
+  if (!d.events.length) { syncEarlier(); return; }
+
+  const feed = $("feed");
+  const sink = { nodes: [], prevStamp: prepend ? null : prevStamp };
+  buildCards(d.events, sink);
+  if (prepend) {
+    const scroller = $("scroller");
+    const before = scroller.scrollHeight;
+    feed.prepend(...sink.nodes);
+    scroller.scrollTop += scroller.scrollHeight - before;
+    firstSeq = d.events[0].seq;
+  } else {
+    feed.append(...sink.nodes);
+    prevStamp = sink.prevStamp;
+    lastSeq = Math.max(lastSeq, d.events[d.events.length - 1].seq);
+    if (!firstSeq) firstSeq = d.events[0].seq;
+    if (follow) $("scroller").scrollTop = $("scroller").scrollHeight;
+  }
+  applySearch();
+  syncEarlier();
+}
+
+async function loadTail() {
+  if (inflight || !sel) return;
+  inflight = true;
+  try {
+    const d = await fetchSlice({ since: lastSeq });
+    if (d) absorb(d);
+  } finally { inflight = false; }
+}
+
+async function loadEarlier() {
+  if (inflight || !sel || firstSeq <= 1) return;
+  inflight = true;
+  try {
+    const d = await fetchSlice({ until: firstSeq - 1 });
+    if (d) absorb(d, { prepend: true });
+  } finally { inflight = false; }
+}
+
+async function loadWindow(center) {
+  if (inflight || !sel) return;
+  inflight = true;
+  try {
+    const d = await fetchSlice({ since: Math.max(0, center - 150), until: center + 250 });
+    if (!d) return;
+    resetFeed();
+    absorb(d);
+  } finally { inflight = false; }
+}
+
+function select(job, trial) {
+  if (sel && sel.job === job && sel.trial === trial) return;
+  sel = { job, trial };
+  follow = true; syncFollow();
+  spine = ""; drawRail();
+  resetFeed();
+  $("rail").hidden = false;
+  loadTail().then(() => {
+    const feed = $("feed");
+    if (feed && !feed.children.length)
+      feed.innerHTML = `<div class="empty">No trajectory yet — the agent has not written a session log.</div>`;
+  });
+  loadOverview();
+}
+
+/* ── follow ───────────────────────────────────────────────── */
+
+function syncFollow() {
+  $("follow").classList.toggle("off", !follow);
+  $("follow").textContent = follow ? "following" : "paused";
+  $("wrap").classList.toggle("paused", !follow);
+}
+
+function resumeLive() {
+  follow = true; syncFollow();
+  if (lastSeq < latestSeq) { resetFeed(); loadTail(); }
+  else $("scroller").scrollTop = $("scroller").scrollHeight;
+}
+
+$("follow").onclick = () => { follow ? (follow = false, syncFollow()) : resumeLive(); };
+$("resume").onclick = resumeLive;
+$("scroller").addEventListener("scroll", () => {
+  const el = $("scroller");
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  if (!atBottom && follow) { follow = false; syncFollow(); }
+  drawRail();
+}, { passive: true });
+
+/* ── rail ─────────────────────────────────────────────────── */
+
+const RAIL_COLOR = { t: "#a98ff7", x: "#e8eef7", u: "#54799f", p: "#d9b45b", R: "#ff5d5d" };
+
+function visibleSeqRange() {
+  const scroller = $("scroller");
+  const cards = $("feed")?.querySelectorAll(".ev[data-seq]") ?? [];
+  const top = scroller.scrollTop, bottom = top + scroller.clientHeight;
+  let lo = null, hi = null;
+  for (const card of cards) {
+    if (card.offsetTop + card.offsetHeight < top) continue;
+    if (card.offsetTop > bottom) break;
+    const seq = +card.dataset.seq;
+    if (lo == null) lo = seq;
+    hi = seq;
+  }
+  return [lo, hi];
+}
+
+function drawRail() {
+  const cv = $("rail");
+  if (cv.hidden) return;
+  const dpr = devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const n = spine.length;
+  if (!n) return;
+  for (let i = 0; i < n; i++) {
+    const code = spine[i];
+    if (code === "r") continue;   // results ride their call's tick
+    const color = RAIL_COLOR[code];
+    if (!color) continue;
+    const y = (i / n) * h;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = code === "u" ? 0.75 : 1;
+    ctx.fillRect(code === "R" ? 2 : 4, y, code === "R" ? w - 4 : w - 8, Math.max(2, h / n * 0.6));
+  }
+  ctx.globalAlpha = 1;
+  const [lo, hi] = visibleSeqRange();
+  if (lo != null) {
+    const y0 = ((lo - 1) / n) * h, y1 = (hi / n) * h;
+    ctx.fillStyle = "rgba(255,255,255,.07)";
+    ctx.fillRect(0, y0, w, Math.max(3, y1 - y0));
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    ctx.strokeRect(.5, y0 + .5, w - 1, Math.max(3, y1 - y0) - 1);
+  }
+}
+
+$("rail").onclick = event => {
+  if (!spine.length) return;
+  const seq = Math.min(spine.length, Math.max(1,
+    Math.round((event.offsetY / $("rail").clientHeight) * spine.length)));
+  jumpTo(seq);
+};
+
+function jumpTo(seq) {
+  if (seq >= firstSeq && seq <= lastSeq) {
+    for (const card of $("feed").querySelectorAll(".ev[data-seq]")) {
+      if (+card.dataset.seq >= seq) {
+        if (follow) { follow = false; syncFollow(); }
+        card.scrollIntoView({ block: "center" });
+        card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+        return;
+      }
+    }
+  }
+  follow = false; syncFollow();
+  loadWindow(seq);
+}
+
+new ResizeObserver(drawRail).observe($("wrap"));
+
+/* ── toolbar ──────────────────────────────────────────────── */
+
+const FILTERS = [["f-think", "hide-think", true], ["f-tools", "hide-tools", true], ["f-err", "only-err", false]];
+function syncFilters() {
+  const feed = $("feed");
+  if (!feed) return;
+  for (const [btn, cls, invert] of FILTERS)
+    feed.classList.toggle(cls, invert ? !$(btn).classList.contains("on") : $(btn).classList.contains("on"));
+}
+for (const [btn] of FILTERS)
+  $(btn).onclick = () => { $(btn).classList.toggle("on"); syncFilters(); };
+$("q").oninput = () => applySearch();
+$("q").onkeydown = e => { if (e.key === "Escape") { $("q").value = ""; applySearch(); $("q").blur(); } };
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "/") { e.preventDefault(); $("q").focus(); return; }
+  if (e.key === "f") { $("follow").click(); return; }
+  if (e.key === "e") {
+    const cards = [...($("feed")?.querySelectorAll(".ev") ?? [])];
+    const anyCollapsed = cards.some(c => c.classList.contains("collapsed"));
+    for (const c of cards) c.classList.toggle("collapsed", !anyCollapsed);
+    return;
+  }
+  if (e.key === "j" || e.key === "k") {
+    const trials = [...document.querySelectorAll("#sidebar .trial")];
+    if (!trials.length) return;
+    const at = trials.findIndex(t => t.classList.contains("sel"));
+    const next = trials[Math.min(trials.length - 1, Math.max(0, at + (e.key === "j" ? 1 : -1)))];
+    if (next) { select(next.dataset.job, next.dataset.trial);
+               next.scrollIntoView({ block: "nearest" }); }
+  }
+});
+
+/* ── live feed ────────────────────────────────────────────── */
+
+async function onTick() {
+  loadOverview();
+  if (!sel) return;
+  if (follow) loadTail();
+  else {
+    // Detached from the tail: refresh header + spine without touching the feed.
+    const d = await fetchSlice({ since: 0, limit: 1 });
+    if (d) { renderHead(d); spine = d.spine ?? ""; latestSeq = d.latest_seq ?? 0; drawRail(); }
+  }
+}
+
+const es = new EventSource("/api/events");
+es.onopen = () => { $("live").classList.add("on"); $("livetext").textContent = "live"; };
+es.onerror = () => { $("live").classList.remove("on"); $("livetext").textContent = "reconnecting"; };
+es.onmessage = onTick;
+
+loadOverview();
+setInterval(loadOverview, 10000);  // refresh idle timers even when nothing changes
+</script>
+</body>
+</html>

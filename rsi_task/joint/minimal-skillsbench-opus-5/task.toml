@@ -1,0 +1,38 @@
+schema_version = "1.3"
+artifacts = ["/workspace/final-agent.tar.gz", "/workspace/final-checkpoint.txt", "/workspace/final-data.jsonl"]
+
+[task]
+name = "rsi_task/joint-minimal-skillsbench-opus-5"
+description = "Improve the agent system on the fixed SkillsBench profile."
+
+[verifier]
+timeout_sec = 43200.0
+environment_mode = "separate"
+
+[verifier.environment.env]
+MODEL_SERVER_API_BASE = "${MODEL_SERVER_API_BASE}"
+MODEL_SERVER_API_KEY = "${MODEL_SERVER_VERIFIER_API_KEY}"
+BENCHMARK_SERVER_URL = "${BENCHMARK_SERVER_URL}"
+BENCHMARK_SERVER_API_KEY = "${BENCHMARK_SERVER_VERIFIER_API_KEY}"
+
+[agent]
+timeout_sec = 604800.0
+
+[environment]
+build_timeout_sec = 1800.0
+cpus = 4
+memory_mb = 16384
+skills_dir = "/skills"
+
+[environment.env]
+AUTH_SERVER_URL = "${AUTH_SERVER_URL}"
+MODEL_SERVER_API_BASE = "${MODEL_SERVER_API_BASE}"
+MODEL_SERVER_API_KEY = "${MODEL_SERVER_API_KEY}"
+BENCHMARK_SERVER_URL = "${BENCHMARK_SERVER_URL}"
+BENCHMARK_SERVER_API_KEY = "${BENCHMARK_SERVER_API_KEY}"
+E2B_API_URL = "${E2B_API_URL}"
+E2B_API_KEY = "${E2B_API_KEY}"
+TRAIN_SERVER_URL = "${TRAIN_SERVER_URL}"
+TRAIN_SERVER_API_KEY = "${TRAIN_SERVER_API_KEY}"
+ROLLOUT_SERVER_URL = "${ROLLOUT_SERVER_URL}"
+ROLLOUT_SERVER_API_KEY = "${ROLLOUT_SERVER_API_KEY}"

@@ -1,0 +1,71 @@
+schema_version = "1.3"
+artifacts = ["/workspace/final-checkpoint.txt", "/workspace/final-data.jsonl"]
+
+[task]
+name = "rsi_task/data-mini-swe-swe-verified-nonet"
+description = "Evolve training data and score its checkpoint with mini-swe-agent on SWE-bench Verified sample100."
+
+[verifier]
+timeout_sec = 43200.0
+environment_mode = "separate"
+
+[verifier.environment.env]
+MODEL_SERVER_API_BASE = "${MODEL_SERVER_API_BASE}"
+MODEL_SERVER_API_KEY = "${MODEL_SERVER_VERIFIER_API_KEY}"
+BENCHMARK_SERVER_URL = "${BENCHMARK_SERVER_URL}"
+BENCHMARK_SERVER_API_KEY = "${BENCHMARK_SERVER_VERIFIER_API_KEY}"
+
+[agent]
+timeout_sec = 604800.0
+
+[environment]
+network_mode = "allowlist"
+allowed_hosts = [
+    "auth-server.evolvent.work",
+    "train-server.evolvent.work",
+    "ms.evolvent.work",
+    "benchmark-server.evolvent.work",
+    "rollout-server.evolvent.work",
+    "e2b.evolvent.work",
+    "*.e2b.app",
+    "llmapi.evolventapi.com",
+    "pypi.org",
+    "files.pythonhosted.org",
+    "pypi.tuna.tsinghua.edu.cn",
+    "deb.debian.org",
+    "security.debian.org",
+    "mirrors.aliyun.com",
+    "archive.ubuntu.com",
+    "security.ubuntu.com",
+    "registry.npmjs.org",
+    "registry.yarnpkg.com",
+    "nodejs.org",
+    "repo.anaconda.com",
+    "conda.anaconda.org",
+]
+build_timeout_sec = 1800.0
+cpus = 4
+memory_mb = 16384
+skills_dir = "/skills"
+
+[environment.env]
+AUTH_SERVER_URL = "${AUTH_SERVER_URL}"
+TRAIN_SERVER_URL = "${TRAIN_SERVER_URL}"
+TRAIN_SERVER_API_KEY = "${TRAIN_SERVER_API_KEY}"
+MODEL_SERVER_API_BASE = "${MODEL_SERVER_API_BASE}"
+MODEL_SERVER_API_KEY = "${MODEL_SERVER_API_KEY}"
+BENCHMARK_SERVER_URL = "${BENCHMARK_SERVER_URL}"
+BENCHMARK_SERVER_API_KEY = "${BENCHMARK_SERVER_API_KEY}"
+ROLLOUT_SERVER_URL = "${ROLLOUT_SERVER_URL}"
+ROLLOUT_SERVER_API_KEY = "${ROLLOUT_SERVER_API_KEY}"
+E2B_API_URL = "${E2B_API_URL}"
+E2B_API_KEY = "${E2B_API_KEY}"
+# Every request must leave the container directly so the egress allowlist sees its real destination.
+HTTP_PROXY = ""
+HTTPS_PROXY = ""
+ALL_PROXY = ""
+NO_PROXY = ""
+http_proxy = ""
+https_proxy = ""
+all_proxy = ""
+no_proxy = ""

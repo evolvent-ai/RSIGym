@@ -1,0 +1,38 @@
+[project]
+name = "model-server"
+version = "0.1.0"
+description = "Persistent OpenAI-compatible gateway to Tinker: any trained checkpoint is callable by its id."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.38.0",
+    "python-dotenv>=1.1.1",
+    "httpx>=0.27.0",
+    "tinker>=0.24.1",
+    # >=5.14 for get_response_parser / declarative response_template.
+    "transformers>=5.14",
+    "tokenizers",
+    "jinja2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "model_server"
+module-root = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

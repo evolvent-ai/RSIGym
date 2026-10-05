@@ -1,0 +1,34 @@
+{
+  "budget_usd": 500,
+  "model_server": {"allowed": true},
+  "e2b_proxy": {"allowed": true, "nonet": true, "max_sandboxes": 64},
+  "benchmark_server": {"allowed": true},
+  "rollout_server": {"allowed": true},
+  "train_server": {
+    "allowed": true,
+    "lock": {
+      "base_model": "Qwen/Qwen3.5-35B-A3B-Base",
+      "dataset": "custom",
+      "loss_fn": "cross_entropy",
+      "loss_fn_config": null,
+      "num_epochs": 1,
+      "batch_size": 16,
+      "max_length": 65536,
+      "max_steps": null,
+      "train_on_what": "all_assistant_messages",
+      "lr_schedule": "linear",
+      "renderer": "qwen3_5_preserve_thinking",
+      "lora_config.rank": 16,
+      "lora_config.seed": 0,
+      "lora_config.train_unembed": true,
+      "lora_config.train_mlp": true,
+      "lora_config.train_attn": true,
+      "adam_params.learning_rate": 0.0003,
+      "adam_params.beta1": 0.9,
+      "adam_params.beta2": 0.95,
+      "adam_params.eps": 1e-8,
+      "adam_params.weight_decay": 0.0,
+      "adam_params.grad_clip_norm": 0.0
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "openai": {
+      "baseUrl": "http://llmapi.evolventapi.com/v1",
+      "apiKey": "$OPENAI_API_KEY",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "qwen/qwen3.8-27b",
+          "name": "qwen/qwen3.8-27b",
+          "reasoning": false,
+          "input": ["text"],
+          "cost": {"input": 0.425, "output": 2.55, "cacheRead": 0.085, "cacheWrite": 0},
+          "contextWindow": 262144,
+          "maxTokens": 32768,
+          "compat": {"supportsDeveloperRole": false}
+        }
+      ]
+    }
+  }
+}

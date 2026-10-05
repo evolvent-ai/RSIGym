@@ -1,0 +1,40 @@
+[project]
+name = "train-server"
+version = "0.1.0"
+description = "Run Tinker LoRA training remotely: a pass-through config plus per-key field governance."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.38.0",
+    "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.20",
+    "httpx>=0.27.0",
+    "tinker>=0.24.1",
+    "torch",
+    "tinker-cookbook",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[tool.uv.sources]
+tinker-cookbook = { git = "https://github.com/thinking-machines-lab/tinker-cookbook.git", rev = "v0.5.7" }
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "train_server"
+module-root = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

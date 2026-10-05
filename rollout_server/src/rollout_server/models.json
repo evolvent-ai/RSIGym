@@ -1,0 +1,10 @@
+[
+  {"name": "claude-sonnet-5", "upstream": "bedrock-claude-sonnet-5", "input": 2.00, "cached_input": 0.20, "output": 10.00},
+  {"name": "claude-opus-5", "upstream": "openrouter-claude-opus-5", "input": 5.00, "cached_input": 0.50, "output": 25.00},
+  {"name": "claude-opus-5-5", "upstream": "openrouter-claude-opus-5-5", "input": 4.00, "cached_input": 0.20, "output": 20.00},
+  {"name": "gpt-6-astra", "upstream": "azure-gpt-6-astra", "input": 10.00, "cached_input": 1.00, "output": 50.00},
+  {"name": "gpt-6-sol", "upstream": "gpt-6-sol-azure", "input": 2.00, "cached_input": 0.20, "output": 10.00},
+  {"name": "gpt-6.1-sol", "upstream": "gpt-6.1-sol-azure", "input": 2.00, "cached_input": 0.10, "output": 10.00},
+  {"name": "deepseek-v4.1-flash", "upstream": "deepseek-v4.1-flash", "input": 0.30, "cached_input": 0.006, "output": 1.20},
+  {"name": "qwen3.8-27b", "upstream": "qwen/qwen3.8-27b", "input": 0.425, "cached_input": 0.085, "output": 2.55}
+]

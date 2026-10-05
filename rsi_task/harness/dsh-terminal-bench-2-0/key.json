@@ -1,0 +1,6 @@
+{
+  "budget_usd": 500,
+  "model_server": {"allowed": true},
+  "benchmark_server": {"allowed": true},
+  "e2b_proxy": {"allowed": true, "max_sandboxes": 128}
+}

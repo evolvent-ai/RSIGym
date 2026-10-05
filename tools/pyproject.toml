@@ -1,0 +1,33 @@
+[project]
+name = "rsiwatch"
+version = "0.1.0"
+description = "Live dashboard for RSI experiments: watch Harbor jobs and Claude Code agent trajectories as they run."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.38.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.3.0",
+]
+
+[project.scripts]
+rsiwatch = "rsiwatch.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rsiwatch"
+module-root = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

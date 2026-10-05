@@ -1,0 +1,16 @@
+{
+  "budget_usd": 500,
+  "model_server": {"allowed": true},
+  "e2b_proxy": {"allowed": true, "max_sandboxes": 128},
+  "benchmark_server": {"allowed": true},
+  "rollout_server": {"allowed": true, "models": ["gpt-6-sol"]},
+  "train_server": {
+    "allowed": true,
+    "allow": "*",
+    "lock": {
+      "base_model": "Qwen/Qwen3.5-35B-A3B-Base",
+      "dataset": "custom",
+      "renderer": "qwen3_5_preserve_thinking"
+    }
+  }
+}

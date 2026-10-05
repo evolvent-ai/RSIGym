@@ -1,0 +1,11 @@
+# Points the stock headless profile at the evaluation's model. The endpoint and
+# key are read natively from DEEPSEEK_BASE_URL / DEEPSEEK_API_KEY, and
+# DSH_PERMISSION_MODE=danger-full-access disables approvals for the disposable
+# trial container; only the model is pinned at boot and needs a patch row.
+- id: agent-default-model
+  config:
+    provider: deepseek-official
+    model: !!js process.env.DSH_MODEL
+
+- id: attachment-local
+  disabled: true
