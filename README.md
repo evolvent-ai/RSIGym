@@ -198,6 +198,6 @@ RSIGym/
 [paper-image]: https://img.shields.io/badge/Paper-RSIGym-b31b1b
 [paper-url]: https://github.com/evolvent-ai/RSIGym
 [website-image]: https://img.shields.io/badge/Website-RSIGym-3454D1
-[website-url]: https://github.com/evolvent-ai/RSIGym
+[website-url]: https://rsi-index.ai/
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
 [github-url]: https://github.com/evolvent-ai/RSIGym
