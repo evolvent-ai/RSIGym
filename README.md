@@ -6,6 +6,8 @@
 [![Paper][paper-image]][paper-url]
 [![Website][website-image]][website-url]
 [![GitHub][github-image]][github-url]
+[![X][x-image]][x-url]
+[![小红书][xhs-image]][xhs-url]
 
 </div>
 
@@ -201,3 +203,7 @@ RSIGym/
 [website-url]: https://rsi-index.ai/
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
 [github-url]: https://github.com/evolvent-ai/RSIGym
+[x-image]: https://img.shields.io/badge/X-Announcement-000000?logo=x&logoColor=white
+[x-url]: https://x.com/FanqingMengAI/status/2108030344322789563
+[xhs-image]: https://img.shields.io/badge/小红书-Announcement-FF2442
+[xhs-url]: http://xhslink.com/o/7leCmGY8IBN
