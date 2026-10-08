@@ -196,7 +196,7 @@ RSIGym/
 [evolvent-image]: https://img.shields.io/badge/Evolvent_AI-evolvent.co-0f141b
 [evolvent-url]: https://evolvent.co
 [paper-image]: https://img.shields.io/badge/Paper-RSIGym-b31b1b
-[paper-url]: https://github.com/evolvent-ai/RSIGym
+[paper-url]: https://arxiv.org/abs/2610.10310
 [website-image]: https://img.shields.io/badge/Website-RSIGym-3454D1
 [website-url]: https://rsi-index.ai/
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
