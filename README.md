@@ -5,6 +5,7 @@
 [![Evolvent AI][evolvent-image]][evolvent-url]
 [![Paper][paper-image]][paper-url]
 [![Website][website-image]][website-url]
+[![Records][records-image]][records-url]
 [![GitHub][github-image]][github-url]
 [![X][x-image]][x-url]
 [![小红书][xhs-image]][xhs-url]
@@ -90,6 +91,12 @@ The formula uses scores in `[0, 1]` and weights the five benchmarks equally. An 
 
 - **Iterating an existing harness.** With Qwen3.6-35B-A3B-Instruct weights fixed, Opus 5 revises DSH and raises Terminal-Bench from **30.34% to 40.82%**. Tasks solved on all three attempts increase from **15 to 26**.
 - **Qwen3.8-27B as researcher and target.** The model completes training, candidate comparison, and submission, but the selected system scores **56.26% versus 56.66%** initially on all 37 SkillsBench tasks. Its six-task development gain does not translate into an overall improvement.
+
+## 📂 Run Records
+
+We've made all our run records (agent trajectories) publicly available. We invite everyone to explore the trajectories and examine how agents behave during recursive self-improvement (RSI).
+
+**[Download the run records (Google Drive)][records-url]**
 
 ## 🚀 Quick Start
 
@@ -201,6 +208,8 @@ RSIGym/
 [paper-url]: https://arxiv.org/abs/2610.10310
 [website-image]: https://img.shields.io/badge/Website-RSIGym-3454D1
 [website-url]: https://rsi-index.ai/
+[records-image]: https://img.shields.io/badge/Records-Agent_Trajectories-4285F4
+[records-url]: https://drive.google.com/file/d/1NslLPgjv7FXY3cS47oie-UBFotV6Ifga/view?usp=sharing
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
 [github-url]: https://github.com/evolvent-ai/RSIGym
 [x-image]: https://img.shields.io/badge/X-Announcement-000000?logo=x&logoColor=white
