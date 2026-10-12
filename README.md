@@ -209,7 +209,7 @@ RSIGym/
 [website-image]: https://img.shields.io/badge/Website-RSIGym-3454D1
 [website-url]: https://rsi-index.ai/
 [records-image]: https://img.shields.io/badge/Records-Agent_Trajectories-4285F4
-[records-url]: https://drive.google.com/file/d/1NslLPgjv7FXY3cS47oie-UBFotV6Ifga/view?usp=sharing
+[records-url]: https://drive.google.com/drive/folders/1LnmOArEyrkghTBMuv_AZ3vnjGT3QVM-L
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
 [github-url]: https://github.com/evolvent-ai/RSIGym
 [x-image]: https://img.shields.io/badge/X-Announcement-000000?logo=x&logoColor=white
