@@ -7,6 +7,7 @@
 [![Website][website-image]][website-url]
 [![Records][records-image]][records-url]
 [![GitHub][github-image]][github-url]
+[![License][license-image]](LICENSE)
 [![X][x-image]][x-url]
 [![小红书][xhs-image]][xhs-url]
 
@@ -202,6 +203,20 @@ RSIGym/
 └── tools/             # Live research dashboard
 ```
 
+## License
+
+Except for third-party materials or files with their own license notice, the original RSIGym code and documentation in this repository are licensed under **[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](LICENSE)**.
+
+- **Noncommercial use:** You may share and adapt the licensed material for noncommercial purposes under the license terms.
+- **Attribution:** When sharing the material, give appropriate credit, retain the supplied notices, provide the license text or a link to it, and indicate any changes.
+- **Commercial use:** Commercial use is not granted by this license and requires separate permission from the applicable copyright holders. Contact the maintainers through a [GitHub issue](https://github.com/evolvent-ai/RSIGym/issues) for commercial licensing inquiries.
+
+Third-party code, dependencies, benchmark content, datasets, and model weights retain their respective licenses and terms, including material embedded in task definitions or audit files. This license does not relicense those materials or grant additional rights to them. Externally hosted run records are not covered by this repository license unless explicitly stated with those records.
+
+This is a **source-available license with noncommercial restrictions**, not an OSI-approved open-source license. The full [license text](LICENSE) governs permitted uses.
+
+Copyright 2026 RSIGym contributors (https://github.com/evolvent-ai/RSIGym).
+
 [evolvent-image]: https://img.shields.io/badge/Evolvent_AI-evolvent.co-0f141b
 [evolvent-url]: https://evolvent.co
 [paper-image]: https://img.shields.io/badge/Paper-RSIGym-b31b1b
@@ -212,6 +227,7 @@ RSIGym/
 [records-url]: https://drive.google.com/drive/folders/1LnmOArEyrkghTBMuv_AZ3vnjGT3QVM-L
 [github-image]: https://img.shields.io/badge/GitHub-RSIGym-181717?logo=github&logoColor=white
 [github-url]: https://github.com/evolvent-ai/RSIGym
+[license-image]: https://img.shields.io/badge/License-CC_BY--NC_4.0-orange
 [x-image]: https://img.shields.io/badge/X-Announcement-000000?logo=x&logoColor=white
 [x-url]: https://x.com/FanqingMengAI/status/2108030344322789563
 [xhs-image]: https://img.shields.io/badge/小红书-Announcement-FF2442
