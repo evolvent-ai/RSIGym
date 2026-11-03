@@ -74,6 +74,8 @@ Fields:
 | `train_on_what` | Which tokens count toward the loss (default `all_assistant_messages`) |
 | `renderer` | Chat-template renderer name; how conversations become training tokens |
 | `lr_schedule` | `linear` (default) / `cosine` / `constant` |
+| `init_checkpoint` | Continue training an earlier run's LoRA: that run's `state_checkpoint` (`tinker://.../weights/...`). Same `base_model` and `lora_config` as that run; optimizer starts fresh. Only if your key names it. |
+| `save_state` | `true` = also keep a trainable state, returned as `state_checkpoint`. Only if your key names it. |
 
 Your key governs which of these fields you may set and what values they may take. A field or value your key doesn't allow returns 400 with a message saying which.
 
@@ -162,6 +164,7 @@ Poll `GET /v1/runs/{run_id}`:
     { "step": 1, "nll": 2.13, "learning_rate": 1e-4, "num_tokens": 4096, "metrics": {} }
   ],
   "checkpoint": null,             // "tinker://..." once succeeded
+  "state_checkpoint": null,       // "tinker://.../weights/..." once succeeded, when save_state
   "error": null                   // one-line error once failed
 }
 ```

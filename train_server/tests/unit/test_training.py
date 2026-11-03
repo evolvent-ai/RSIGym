@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from tinker.types import WeightsInfoResponse
 from tinker_cookbook.renderers.base import ToolCall
 
-from train_server.training import _render_messages, _to_messages
+from train_server.training import _init_mismatches, _render_messages, _to_messages
 
 
 class _FakeRenderer:
@@ -147,3 +148,11 @@ def test_tools_fold_a_leading_system_message_into_the_prefix() -> None:
     out = _render_messages(record, _FakeRenderer())
     assert out[0] == {"role": "system", "content": "sys='be nice' tools=1"}
     assert [m["role"] for m in out] == ["system", "user"]
+
+
+def test_init_checkpoint_must_match_the_config() -> None:
+    config = {"base_model": "Qwen/Qwen3-8B", "lora_config": {
+        "rank": 8, "train_unembed": True, "train_mlp": True, "train_attn": True}}
+    same = WeightsInfoResponse(base_model="Qwen/Qwen3-8B", is_lora=True, lora_rank=8)
+    assert _init_mismatches(same, config) == {}
+    assert _init_mismatches(same.model_copy(update={"lora_rank": 16}), config) == {"lora_rank": 16}

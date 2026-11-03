@@ -37,7 +37,7 @@ class RunService:
         self,
         settings: Settings,
         db: Database,
-        trainer: Callable[..., str] | None = None,
+        trainer: Callable[..., tuple[str, str | None]] | None = None,
         auth: httpx.Client | None = None,
     ) -> None:
         self._settings = settings
@@ -181,7 +181,7 @@ class RunService:
                 if response.status_code != 200:
                     raise AuthError(response.json()["detail"])
 
-            checkpoint = self._trainer(
+            checkpoint, state_checkpoint = self._trainer(
                 run_id=run_id,
                 config=config,
                 data_path=data_path,
@@ -192,7 +192,10 @@ class RunService:
                 before_step=before_step,
                 after_step=after_step,
             )
-            self._db.update_run(run_id, status="succeeded", checkpoint=checkpoint, finished=True)
+            self._db.update_run(
+                run_id, status="succeeded", checkpoint=checkpoint,
+                state_checkpoint=state_checkpoint, finished=True,
+            )
             logger.info("run %s succeeded", run_id)
         except TrainingCancelled:
             self._db.update_run(run_id, status="cancelled", finished=True)

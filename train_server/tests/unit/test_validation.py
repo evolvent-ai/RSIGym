@@ -126,3 +126,24 @@ def test_key_policy_rejects_unknown_path() -> None:
 def test_key_policy_rejects_allow_lock_overlap() -> None:
     with pytest.raises(InputError):
         validate_key_policy({"loss_fn": True}, {"loss_fn": "cross_entropy"})
+
+
+STATE = "tinker://run-1/weights/r1"
+
+
+def test_star_allow_does_not_grant_init_checkpoint_or_save_state() -> None:
+    for field in ({"init_checkpoint": STATE}, {"save_state": True}):
+        with pytest.raises(InputError):
+            resolve_config({**BASE, **field}, "*", {})
+
+
+def test_locked_init_checkpoint_and_save_state_are_forced() -> None:
+    effective = resolve_config(BASE, "*", {"init_checkpoint": STATE, "save_state": True})
+    assert effective["init_checkpoint"] == STATE
+    assert effective["save_state"] is True
+
+
+def test_init_checkpoint_must_be_a_training_state() -> None:
+    for bad in ("tinker://run-1/sampler_weights/r1", "Qwen/Qwen3-8B", 1):
+        with pytest.raises(InputError):
+            resolve_config(BASE, "*", {"init_checkpoint": bad})
