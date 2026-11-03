@@ -66,9 +66,18 @@ def train(
     on_start: Callable[[int], None],
     before_step: Callable[[], None],
     after_step: Callable[[int, list[dict[str, Any]]], None],
-) -> str:
+) -> tuple[str, str | None]:
+    """Returns (sampler checkpoint, training state or None unless config.save_state)."""
     service = tinker.ServiceClient(user_metadata={"purpose": "rsi-train-server", "run_id": run_id})
+    init_checkpoint = config.get("init_checkpoint")
+    if init_checkpoint:  # checked before any step, so a mismatch fails the run unbilled
+        rest = service.create_rest_client()
+        info = rest.get_weights_info_by_tinker_path(init_checkpoint).result()
+        if mismatched := _init_mismatches(info, config):
+            raise ValueError(f"init_checkpoint does not match this config: it has {mismatched}")
     tc = service.create_lora_training_client(base_model=config["base_model"], **config["lora_config"])
+    if init_checkpoint:
+        tc.load_state(init_checkpoint).result()  # weights only; the optimizer starts fresh
     renderer = get_renderer(
         config.get("renderer") or model_info.get_recommended_renderer_name(config["base_model"]),
         tc.get_tokenizer(),
@@ -141,11 +150,29 @@ def train(
         after_step(step, step_metrics)
 
     _raise_if_cancelled(cancel_event)
-    save = tc.save_weights_for_sampler(run_id).result()
-    checkpoint = str(save.path)
-    if not checkpoint.startswith("tinker://"):
-        raise ValueError(f"unexpected checkpoint path: {checkpoint}")
-    return checkpoint
+    state = None
+    if config.get("save_state"):
+        state = _tinker_path(tc.save_state(run_id).result().path)
+    return _tinker_path(tc.save_weights_for_sampler(run_id).result().path), state
+
+
+def _tinker_path(path: Any) -> str:
+    path = str(path)
+    if not path.startswith("tinker://"):
+        raise ValueError(f"unexpected checkpoint path: {path}")
+    return path
+
+
+def _init_mismatches(info: Any, config: dict[str, Any]) -> dict[str, Any]:
+    """The checkpoint's values that differ from the LoRA this config trains: base model,
+    rank, and trained layers."""
+    lora = config["lora_config"]
+    expected = {
+        "base_model": config["base_model"], "lora_rank": lora["rank"],
+        "train_unembed": lora["train_unembed"], "train_mlp": lora["train_mlp"],
+        "train_attn": lora["train_attn"],
+    }
+    return {f: getattr(info, f) for f, v in expected.items() if getattr(info, f) not in (None, v)}
 
 
 def _raise_if_cancelled(cancel_event: threading.Event) -> None:

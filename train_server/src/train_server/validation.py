@@ -21,8 +21,11 @@ _NESTED_MODELS = {"lora_config": LoraConfig, "adam_params": AdamParams}
 _FLAT_PATHS = {
     "base_model", "loss_fn", "loss_fn_config", "dataset",
     "num_epochs", "batch_size", "max_length", "max_steps", "train_on_what", "lr_schedule",
-    "renderer",
+    "renderer", "init_checkpoint", "save_state",
 }
+#: Fields `allow: "*"` does not grant (init_checkpoint loads another run's weights): a key
+#: must name them, so existing `"*"` keys keep exactly their old reach.
+_EXPLICIT_ONLY = {"init_checkpoint", "save_state"}
 GOVERNABLE_PATHS = _FLAT_PATHS | {
     f"{group}.{field}" for group, model in _NESTED_MODELS.items() for field in model.model_fields
 }
@@ -77,7 +80,7 @@ def resolve_config(caller: Any, allow: Any, lock: dict[str, Any]) -> dict[str, A
         elif path in lock:
             if value != lock[path]:
                 errors.append(f"{path} is locked to {lock[path]!r} by this key and cannot be changed")
-        elif allow == "*":
+        elif allow == "*" and path not in _EXPLICIT_ONLY:
             continue
         elif isinstance(allow, dict) and path in allow:
             if not _value_allowed(value, allow[path]):
@@ -98,6 +101,7 @@ def resolve_config(caller: Any, allow: Any, lock: dict[str, Any]) -> dict[str, A
 
 def _finalize(effective: dict[str, Any]) -> dict[str, Any]:
     from pydantic import ValidationError
+    from tinker.types.checkpoint import ParsedCheckpointTinkerPath
     from tinker.types.loss_fn_type import LossFnType
     from tinker_cookbook.renderers import TrainOnWhat
     from tinker_cookbook.utils.lr_scheduling import LRSchedule
@@ -126,6 +130,21 @@ def _finalize(effective: dict[str, Any]) -> dict[str, Any]:
     lr_schedule = effective.get("lr_schedule", DEFAULT_LR_SCHEDULE)
     if lr_schedule not in set(get_args(LRSchedule)):
         errors.append(f"lr_schedule={lr_schedule!r} must be one of {sorted(get_args(LRSchedule))}")
+
+    init_checkpoint = effective.get("init_checkpoint")
+    if init_checkpoint is not None:
+        try:
+            parsed = ParsedCheckpointTinkerPath.from_tinker_path(init_checkpoint)
+            is_state = parsed.checkpoint_type == "training"
+        except (ValueError, AttributeError):  # not a tinker path; AttributeError: not a string
+            is_state = False
+        if not is_state:
+            errors.append(
+                f"init_checkpoint={init_checkpoint!r} must be a training state "
+                "(tinker://<run>/weights/<name>, a run's state_checkpoint)"
+            )
+    if not isinstance(effective.get("save_state", False), bool):
+        errors.append("save_state must be a boolean")
     if errors:
         raise InputError(errors)
 

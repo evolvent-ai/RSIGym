@@ -20,8 +20,9 @@ def fake_trainer(
     on_start: Any,
     before_step: Any,
     after_step: Any,
-) -> str:
+) -> tuple[str, str | None]:
     on_start(1)
     before_step()
     after_step(1, [{"step": 1, "nll": 0.5, "metrics": {}, "num_tokens": 12}])
-    return "tinker://fake/run/checkpoint"
+    state = "tinker://fake/weights/state" if config.get("save_state") else None
+    return "tinker://fake/run/checkpoint", state

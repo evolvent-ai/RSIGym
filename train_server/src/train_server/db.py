@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS runs (
     step_metrics TEXT NOT NULL DEFAULT '[]',
     cost_usd     REAL,                   -- estimated $ so far; null until training starts / unknown model
     checkpoint   TEXT,
+    state_checkpoint TEXT,                -- training state (tinker://.../weights/...) when save_state
     error        TEXT,
     created_at   TEXT NOT NULL,
     started_at   TEXT,
@@ -42,6 +43,9 @@ class Database:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
         self._conn.executescript(SCHEMA)
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(runs)")}
+        if "state_checkpoint" not in columns:  # databases created before the column existed
+            self._conn.execute("ALTER TABLE runs ADD COLUMN state_checkpoint TEXT")
 
     def close(self) -> None:
         with self._lock:
@@ -90,6 +94,7 @@ class Database:
         step_metrics: list[dict[str, Any]] | None = None,
         cost_usd: float | None = None,
         checkpoint: str | None = None,
+        state_checkpoint: str | None = None,
         error: str | None = None,
         started: bool = False,
         finished: bool = False,
@@ -103,6 +108,7 @@ class Database:
             ("step_metrics", json.dumps(step_metrics) if step_metrics is not None else None),
             ("cost_usd", cost_usd),
             ("checkpoint", checkpoint),
+            ("state_checkpoint", state_checkpoint),
             ("error", error),
             ("started_at", utcnow() if started else None),
             ("finished_at", utcnow() if finished else None),

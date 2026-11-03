@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from train_server.db import Database
@@ -41,3 +42,19 @@ def test_recover_marks_inflight_runs_interrupted(tmp_path: Path) -> None:
     assert db.run("done")["status"] == "succeeded"
 
 
+
+def test_old_database_gains_state_checkpoint(tmp_path: Path) -> None:
+    path = tmp_path / "t.db"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE runs (run_id TEXT PRIMARY KEY, config TEXT NOT NULL, "
+                 "status TEXT NOT NULL, step INTEGER NOT NULL DEFAULT 0, num_steps INTEGER, "
+                 "step_metrics TEXT NOT NULL DEFAULT '[]', cost_usd REAL, checkpoint TEXT, "
+                 "error TEXT, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT)")
+    conn.execute("INSERT INTO runs (run_id, config, status, created_at) VALUES ('old', '{}', 'succeeded', 't')")
+    conn.commit()
+    conn.close()
+
+    db = Database(path)
+    assert db.run("old")["state_checkpoint"] is None
+    db.update_run("old", state_checkpoint="tinker://r/weights/s")
+    assert db.run("old")["state_checkpoint"] == "tinker://r/weights/s"

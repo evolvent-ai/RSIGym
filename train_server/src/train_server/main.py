@@ -36,7 +36,7 @@ logger = logging.getLogger("train_server")
 def create_app(
     settings: Settings,
     *,
-    trainer: Callable[..., str] | None = None,
+    trainer: Callable[..., tuple[str, str | None]] | None = None,
     auth_transport: httpx.BaseTransport | None = None,
 ) -> FastAPI:
     @asynccontextmanager
@@ -193,6 +193,7 @@ def create_app(
             "cost_usd": record["cost_usd"],
             "step_metrics": record["step_metrics"],
             "checkpoint": record["checkpoint"],
+            "state_checkpoint": record["state_checkpoint"],
             "error": record["error"],
             "created_at": record["created_at"],
             "started_at": record["started_at"],

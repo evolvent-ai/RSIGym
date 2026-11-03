@@ -113,10 +113,21 @@ def test_full_run_succeeds_and_hides_config(client: TestClient, fake_auth: FakeA
     record = _wait(client, run_id, user)
     assert record["status"] == "succeeded"
     assert record["checkpoint"] == "tinker://fake/run/checkpoint"
+    assert record["state_checkpoint"] is None  # only saved when the key asks for it
     assert record["step_metrics"][0]["nll"] == 0.5
     # cost metered per step from Qwen/Qwen3-8B's $0.44/M train rate (vendored price list).
     assert record["cost_usd"] == pytest.approx(12 / 1_000_000 * 0.44)
     assert "config" not in record  # the merged config carries locked values
+
+
+def test_locked_save_state_returns_the_state_checkpoint(
+    client: TestClient, fake_auth: FakeAuth
+) -> None:
+    user = _make_key(fake_auth, lock={"save_state": True})
+    _register(client)
+    config = {"base_model": "Qwen/Qwen3-8B", "lora_config": {"rank": 8}, "dataset": "d", "num_epochs": 1}
+    run_id = client.post("/v1/runs", json={"config": config}, headers=user).json()["run_id"]
+    assert _wait(client, run_id, user)["state_checkpoint"] == "tinker://fake/weights/state"
 
 
 def test_custom_loss_doubles_cost(client: TestClient, fake_auth: FakeAuth) -> None:

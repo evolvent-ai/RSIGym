@@ -79,6 +79,7 @@ Each key's `allow`/`lock` settings determine what callers can change. They are s
 
 - `allow`: either `"*"` (any field except locked ones) or `{field_path: true | [allowed_values]}`, such as `{"loss_fn": ["cross_entropy","custom"], "dataset": true}`. Setting `dataset` to `true` permits any registered dataset and uploads. A list allows only the named datasets; it must include `"custom"` to allow uploads.
 - `lock`: `{field_path: value}` fixes values that callers cannot change.
+- `init_checkpoint` (continue from an earlier run's `state_checkpoint`) and `save_state` (also save a trainable state at the end, returned as `state_checkpoint`) are not granted by `"*"`; a key must allow or lock them explicitly.
 - A request field outside `allow` returns 400. Omitted fields use `lock` values or Tinker field defaults. `base_model` and `lora_config.rank` have no defaults and must be supplied through an allowed request field or a lock.
 - `num_epochs`, `batch_size`, `max_length`, and `max_steps` are not validated at submission and have no defaults. Missing `num_epochs` or `batch_size` causes a training error. Omitting `max_length` disables truncation; omitting `max_steps` leaves the step count uncapped.
 
