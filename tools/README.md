@@ -34,7 +34,9 @@ instead, so a running experiment is visible from its first tool call.
 **Header** — running/stalled/errored counts, total tokens, cache hit rate, and
 cost across all watched jobs.
 
-**Sidebar** — jobs with per-status rollups; each trial is one line: status dot,
+**Sidebar** — jobs with per-status rollups, newest first; each round of a
+`recurse.sh` run is listed as its own job, `recurse-<name>-round-<n>`. Each
+trial is one line: status dot,
 tool count, tokens, and the number that matters for its state (idle time,
 reward, or error type).
 

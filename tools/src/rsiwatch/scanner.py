@@ -12,6 +12,8 @@ Layout this walks (`rsi_task/jobs/`):
           sessions/projects/<cwd>/<session>.jsonl   ← live, what we tail for Claude Code
         verifier/                mounted empty at trial start
           test-stdout.txt        created when the verifier starts, for every agent
+    recurse/<run>/round-<n>/job/ rsi_task/recurse.sh: one Harbor job per round, listed
+                                 as job `recurse-<run>-round-<n>`
 
 Status is inferred rather than read: Harbor writes a trial's `result.json` when
 it finishes, so its absence plus a recently-touched session file means running,
@@ -278,13 +280,15 @@ class Scanner:
         changed = False
         if not self.jobs_dir.is_dir():
             return False
-        for entry in sorted(self.jobs_dir.iterdir()):
-            if not entry.is_dir():
-                continue
-            job = self.jobs.get(entry.name)
+        found = [(entry.name, entry) for entry in sorted(self.jobs_dir.iterdir())
+                 if entry.is_dir() and entry.name != "recurse"]
+        found += [(f"recurse-{job.parent.parent.name}-{job.parent.name}", job)
+                  for job in sorted(self.jobs_dir.glob("recurse/*/round-*/job"))]
+        for name, path in found:
+            job = self.jobs.get(name)
             if job is None:
-                job = Job(name=entry.name, path=entry, stall_after=self.stall_after)
-                self.jobs[entry.name] = job
+                job = Job(name=name, path=path, stall_after=self.stall_after)
+                self.jobs[name] = job
                 changed = True
             if job.refresh():
                 changed = True
@@ -292,7 +296,8 @@ class Scanner:
 
     def overview(self) -> dict[str, Any]:
         jobs = [job.as_summary() for job in self.jobs.values()]
-        jobs.sort(key=lambda j: j["name"], reverse=True)
+        # Newest first: names alone put every recurse run above plain jobs.
+        jobs.sort(key=lambda j: (j["started_at"] or "", j["name"]), reverse=True)
         totals = {"input": 0, "output": 0, "cache_write": 0, "cache_read": 0,
                   "total": 0, "cost_usd": 0.0}
         counts: dict[str, int] = {}

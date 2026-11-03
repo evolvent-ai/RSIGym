@@ -175,3 +175,25 @@ def test_missing_jobs_dir_is_not_fatal(tmp_path):
     scanner = Scanner(tmp_path / "nope")
     assert scanner.refresh() is False
     assert scanner.overview()["jobs"] == []
+
+
+def test_recurse_rounds_are_jobs_next_to_ordinary_ones(tmp_path):
+    make_trial(tmp_path, "job1", "t1", session_lines=[ASSISTANT])
+    make_trial(tmp_path, "recurse/run1/round-1/job", "t1", session_lines=[ASSISTANT])
+    scanner = Scanner(tmp_path)
+    scanner.refresh()
+
+    assert sorted(scanner.jobs) == ["job1", "recurse-run1-round-1"]
+    assert scanner.trial("recurse-run1-round-1", "t1").status() == "running"
+
+
+def test_overview_lists_newest_job_first(tmp_path):
+    make_trial(tmp_path, "zzz-old", "t1", session_lines=[ASSISTANT])
+    make_trial(tmp_path, "recurse/run1/round-1/job", "t1", session_lines=[ASSISTANT])
+    (tmp_path / "zzz-old" / "result.json").write_text('{"started_at": "2026-10-01T00:00:00"}')
+    (tmp_path / "recurse/run1/round-1/job/result.json").write_text(
+        '{"started_at": "2026-10-13T05:00:00"}')
+    scanner = Scanner(tmp_path)
+    scanner.refresh()
+
+    assert [j["name"] for j in scanner.overview()["jobs"]] == ["recurse-run1-round-1", "zzz-old"]
