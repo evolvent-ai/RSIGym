@@ -732,6 +732,42 @@ async def test_custom_agent_archive_preserves_repository_metadata(tmp_path: Path
     assert "solve this task" in (run_call[2] or {}).values()
 
 
+async def test_custom_agent_streams_archive_to_e2b_without_request_timeout(tmp_path: Path) -> None:
+    from benchmark_server.agents.custom_agent import CustomAgent
+    from harbor.environments.e2b import E2BEnvironment
+
+    archive_path = tmp_path / "agent.tar.gz"
+    archive_path.write_bytes(b"archive")
+    writes: list[tuple] = []
+
+    class Files:
+        async def write(self, path, data, request_timeout=None):
+            writes.append((path, data.read(), request_timeout))
+
+    class R:
+        return_code = 0
+        stdout = ""
+        stderr = ""
+
+    env = E2BEnvironment.__new__(E2BEnvironment)
+    env._sandbox = type("Sandbox", (), {"files": Files()})()
+    env.default_user = None
+
+    async def exec(command, user=None, env=None, cwd=None, timeout_sec=None):
+        return R()
+
+    env.exec = exec
+    agent = CustomAgent(
+        logs_dir=tmp_path / "logs", archive_path=str(archive_path),
+        install_cmd="true", run_cmd="true",
+    )
+    await agent.install(env)
+
+    [(path, data, request_timeout)] = writes
+    assert path.startswith("/tmp/harbor-custom-agent-")
+    assert data == b"archive" and request_timeout == 0
+
+
 def test_unsafe_custom_agent_archive_is_rejected(client: TestClient) -> None:
     import io
     import tarfile
