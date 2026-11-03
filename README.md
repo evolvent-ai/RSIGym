@@ -166,8 +166,17 @@ Example task definitions:
 | Joint on SWE-bench Verified | [rsi_task/joint/minimal-swe-verified-opus-5](rsi_task/joint/minimal-swe-verified-opus-5) |
 | DSH-harness iteration | [rsi_task/harness/dsh-terminal-bench-2-0](rsi_task/harness/dsh-terminal-bench-2-0) |
 | Qwen3.8 self-improvement | [rsi_task/joint/pi-skillsbench-qwen3-8-27b](rsi_task/joint/pi-skillsbench-qwen3-8-27b) |
+| Recursive Qwen3.8 self-improvement | [rsi_task/joint/recursive-pi-skillsbench-qwen3-8-27b](rsi_task/joint/recursive-pi-skillsbench-qwen3-8-27b) |
 
 Select the matching Harbor adapter and model for other researchers. Read each task's `instruction.md` and `task.toml` before running it; submission requirements and environment configuration vary by track.
+
+The recursive task is not launched with `run.sh` directly. `recurse.sh` runs it round after round, each round with its own platform key, duration, and budget:
+
+```bash
+sh recurse.sh <name> <rounds> <hours-per-round> <budget-usd-per-round>
+```
+
+Round 1 is pi 0.84.2 on `Qwen/Qwen3.8-27B`. Each later round's research agent is the harness and checkpoint the previous round submitted, its training continues from that checkpoint's saved state, and its rollouts come only from its own checkpoint lineage. `/workspace/memory` carries over between rounds. Each round is a Harbor job under `rsi_task/jobs/recurse/<name>/round-<n>/`, and `rsi_task/jobs/recurse/<name>/rounds.jsonl` records every round's checkpoint, saved state, and official reward. A round whose agent exits before writing its final files is restarted up to three times; a round that still has none ends the chain.
 
 ### 4. Inspect and audit a run
 
@@ -198,7 +207,7 @@ RSIGym/
 ├── benchmark_server/  # Harbor evaluation on E2B
 ├── e2b_proxy/         # Sandbox access and isolation
 ├── skills/            # Service documentation supplied to research agents
-├── rsi_task/          # Current Data, Harness, and Joint tasks; launch and audit scripts
+├── rsi_task/          # Current Data, Harness, and Joint tasks; launch, recursion, and audit scripts
 ├── rsi_task_legacy/   # Earlier task definitions
 └── tools/             # Live research dashboard
 ```
