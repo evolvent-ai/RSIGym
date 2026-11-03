@@ -11,6 +11,7 @@ import shlex
 
 from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
 from harbor.environments.base import BaseEnvironment
+from harbor.environments.e2b import E2BEnvironment
 from harbor.models.agent.context import AgentContext
 
 AGENT_DIR = "/agent"
@@ -31,7 +32,16 @@ class CustomAgent(BaseInstalledAgent):
 
     async def install(self, environment: BaseEnvironment) -> None:
         remote_archive = f"/tmp/harbor-custom-agent-{uuid.uuid4().hex}.tar.gz"
-        await environment.upload_file(self._archive_path, remote_archive)
+        if isinstance(environment, E2BEnvironment):
+            # harbor's E2B upload sends the archive as one request under E2B's 60 s default
+            # timeout, which a large archive misses while trials upload concurrently. Stream
+            # it with no request timeout; the agent setup timeout still bounds the install.
+            with open(self._archive_path, "rb") as archive:
+                await environment._sandbox.files.write(
+                    remote_archive, archive, request_timeout=0
+                )
+        else:
+            await environment.upload_file(self._archive_path, remote_archive)
         chown = ""
         if environment.default_user is not None:
             chown = (
