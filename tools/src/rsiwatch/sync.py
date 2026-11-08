@@ -20,14 +20,19 @@ def sync(jobs_dir: Path, docker_context: str | None = None):
         if (trial/'result.json').exists():
             continue
         data = json.loads(config.read_text())
-        if (data.get('agent') or {}).get('name') != 'mini-swe-agent':
+        agent_name=(data.get('agent') or {}).get('name')
+        if agent_name == 'mini-swe-agent':
+            filenames=('mini-swe-agent.trajectory.json','mini-swe-agent.txt')
+        elif agent_name in ('omp','omp_local:OmpLocal'):
+            filenames=('omp.txt',)
+        else:
             continue
         name = trial.name.lower()+'__env-main-1'
         if name not in running:
             continue
         agent = trial/'agent'
         agent.mkdir(exist_ok=True)
-        for filename in ('mini-swe-agent.trajectory.json', 'mini-swe-agent.txt'):
+        for filename in filenames:
             with tempfile.TemporaryDirectory(dir=agent) as temp:
                 target = Path(temp)/filename
                 result = subprocess.run(docker + ['cp',

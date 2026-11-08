@@ -1060,3 +1060,38 @@ class MiniSweReader(AtifReader):
                 self._ingest_user({"message": {"content": body}}, timestamp)
         self._snapshot = snapshot
         return True
+
+
+class OmpReader(PiReader):
+    """Read OMP stdout JSONL; consume message_end only, not repeated turn_end.
+
+    OMP emits the same message in message_end, turn_end and agent_end. Only
+    completed messages count toward events and usage. Pi's message block parser
+    already understands thinking, text, toolCall, toolResult and cache usage.
+    """
+
+    def _reset(self) -> None:
+        super()._reset()
+        self._omp_seen: set[str] = set()
+
+    def _ingest(self, record: dict[str, Any]) -> None:
+        if record.get("type") == "session":
+            super()._ingest(record)
+            return
+        if record.get("type") != "message_end":
+            return
+        message = record.get("message")
+        if not isinstance(message, dict):
+            return
+        timestamp = message.get("timestamp")
+        key = str(message.get("responseId") or
+                  (message.get("role"), timestamp, message.get("toolCallId")))
+        if key in self._omp_seen:
+            return
+        self._omp_seen.add(key)
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp / 1000, UTC).isoformat()
+        if timestamp:
+            self.first_timestamp = self.first_timestamp or timestamp
+            self.last_timestamp = timestamp
+        self._ingest_message(key, message, timestamp)

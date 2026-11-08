@@ -35,6 +35,7 @@ from typing import Any
 from rsiwatch.trajectory import (
     AtifReader,
     MiniSweReader,
+    OmpReader,
     CodexReader,
     CodexRolloutReader,
     PiReader,
@@ -127,6 +128,10 @@ class Trial:
                 # the teed event stream is the only thing on the host while it runs.
                 self.session_path = self.agent_dir / "codex.txt"
                 self.reader = CodexReader(self.session_path, model=self.model_name)
+                changed = True
+            elif (self.agent_dir / "omp.txt").exists():
+                self.session_path = self.agent_dir / "omp.txt"
+                self.reader = OmpReader(self.session_path, model=self.model_name)
                 changed = True
             elif (self.agent_dir / "mini-swe-agent.trajectory.json").exists():
                 self.session_path = self.agent_dir / "mini-swe-agent.trajectory.json"

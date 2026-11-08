@@ -148,3 +148,8 @@ trial's `agent/` directory. It skips invalid/incomplete JSON and unchanged files
 It does not handle other container names or remote environment providers.
 Use `--once` for one pass, `--interval SECONDS` to change the default 3-second
 poll, and Ctrl-C to stop. The bridge requires the Docker CLI and daemon.
+
+OMP stdout (`agent/omp.txt`) is also supported. The reader uses `message_end`
+events for reasoning, tools, results and cache-aware usage, and ignores repeated
+`turn_end`/`agent_end` copies. The Docker bridge supports `omp` and the official
+`omp_local:OmpLocal` adapter in addition to mini-swe-agent.
