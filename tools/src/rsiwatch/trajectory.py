@@ -914,3 +914,184 @@ def file_age_seconds(path: Path) -> float | None:
         return max(0.0, time.time() - path.stat().st_mtime)
     except OSError:
         return None
+
+
+class AtifReader(TrajectoryReader):
+    """Read Harbor ATIF snapshots, including Terminus's live rewrites.
+
+    Rebuild only after a complete changed snapshot; a partial write leaves the
+    last good view intact. Rebuilding prevents duplicate events and token usage.
+    """
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self._snapshot = None
+
+    def poll(self) -> bool:
+        try:
+            snapshot = self.path.read_text(encoding="utf-8")
+            data = json.loads(snapshot)
+        except (OSError, ValueError):
+            return False
+        if snapshot == self._snapshot or not isinstance(data, dict):
+            return False
+        if "schema_version" not in data or not isinstance(data.get("steps"), list):
+            return False
+        self._reset()
+        self.session_id = data.get("session_id")
+        self.model = (data.get("agent") or {}).get("model_name")
+        for step in data["steps"]:
+            timestamp = step.get("timestamp")
+            if timestamp:
+                self.first_timestamp = self.first_timestamp or timestamp
+                self.last_timestamp = timestamp
+            message = step.get("message") or ""
+            if step.get("source") != "agent":
+                self._ingest_user({"message": {"content": message}}, timestamp)
+                continue
+            content = []
+            if step.get("reasoning_content"):
+                content.append({"type": "thinking", "thinking": step["reasoning_content"]})
+            if message:
+                content.append({"type": "text", "text": message})
+            for call in step.get("tool_calls") or []:
+                content.append({"type": "tool_use", "id": call.get("tool_call_id"),
+                                "name": call.get("function_name"),
+                                "input": call.get("arguments")})
+            metrics = step.get("metrics") or {}
+            self._ingest_assistant({"message": {
+                "id": str(step["step_id"]), "model": step.get("model_name"),
+                "content": content,
+                "usage": {"input_tokens": metrics.get("prompt_tokens", 0),
+                          "output_tokens": metrics.get("completion_tokens", 0)},
+            }}, timestamp)
+            for result in (step.get("observation") or {}).get("results") or []:
+                self._ingest_tool_result({"tool_use_id": result.get("source_call_id"),
+                                          "content": result.get("content"),
+                                          "is_error": result.get("is_error", False)},
+                                         None, timestamp)
+        totals = data.get("final_metrics") or {}
+        cached = totals.get("total_cached_tokens")
+        if isinstance(cached, (int, float)) and 0 <= cached <= self.usage.input:
+            self.usage.input -= cached
+            self.usage.cache_read = cached
+        self._snapshot = snapshot
+        return True
+
+    def summary(self) -> dict[str, Any]:
+        summary = super().summary()
+        # This local Rec model has no per-token API charge; never price it as Opus.
+        if self.model in ("flint", "openai/flint"):
+            summary["usage"]["cost_usd"] = 0.0
+        return summary
+
+
+class MiniSweReader(AtifReader):
+    """Read mini-swe-agent's live native JSON snapshots and OpenAI tool calls."""
+
+    def __init__(self, path: Path, model: str | None = None) -> None:
+        super().__init__(path)
+        self._configured_model = model
+
+    def poll(self) -> bool:
+        try:
+            snapshot = self.path.read_text(encoding="utf-8")
+            data = json.loads(snapshot)
+        except (OSError, ValueError):
+            return False
+        if snapshot == self._snapshot or not isinstance(data, dict):
+            return False
+        if not isinstance(data.get("messages"), list):
+            return False
+        self._reset()
+        self.model = self._configured_model
+        for index, message in enumerate(data["messages"]):
+            timestamp = message.get("timestamp")
+            if timestamp:
+                self.first_timestamp = self.first_timestamp or timestamp
+                self.last_timestamp = timestamp
+            role = message.get("role")
+            body = message.get("content") or ""
+            if role == "assistant":
+                blocks = []
+                thinking = message.get("reasoning_content")
+                if thinking:
+                    blocks.append({"type": "thinking", "thinking": thinking})
+                if body:
+                    blocks.append({"type": "text", "text": body})
+                for call in message.get("tool_calls") or []:
+                    function = call.get("function") or {}
+                    arguments = function.get("arguments") or {}
+                    if isinstance(arguments, str):
+                        try:
+                            arguments = json.loads(arguments)
+                        except ValueError:
+                            arguments = {"raw": arguments}
+                    blocks.append({"type": "tool_use", "id": call.get("id"),
+                                   "name": function.get("name"), "input": arguments})
+                response = (message.get("extra") or {}).get("response") or {}
+                usage = response.get("usage") or message.get("usage") or {}
+                prompt = usage.get("prompt_tokens") or 0
+                cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+                cached = min(max(cached, 0), prompt)
+                self._ingest_assistant({"message": {
+                    "id": str(index), "content": blocks,
+                    "model": response.get("model") or self.model,
+                    "usage": {"input_tokens": prompt - cached,
+                              "cache_read_input_tokens": cached,
+                              "output_tokens": usage.get("completion_tokens", 0)},
+                }}, timestamp)
+            elif role == "tool":
+                try:
+                    result = json.loads(body)
+                except (ValueError, TypeError):
+                    result = {}
+                if not isinstance(result, dict):
+                    result = {}
+                self._ingest_tool_result({"tool_use_id": message.get("tool_call_id"),
+                    "content": result.get("output", body),
+                    "is_error": bool(result.get("returncode", 0))}, None, timestamp)
+            elif role == "exit":
+                status = (message.get("extra") or {}).get("exit_status")
+                self._append(Event(seq=self._next(), kind="text", timestamp=timestamp,
+                                   body=body, is_error=status not in
+                                   (None, "Submitted", "Completed", "Success")))
+            else:
+                self._ingest_user({"message": {"content": body}}, timestamp)
+        self._snapshot = snapshot
+        return True
+
+
+class OmpReader(PiReader):
+    """Read OMP stdout JSONL; consume message_end only, not repeated turn_end.
+
+    OMP emits the same message in message_end, turn_end and agent_end. Only
+    completed messages count toward events and usage. Pi's message block parser
+    already understands thinking, text, toolCall, toolResult and cache usage.
+    """
+
+    def _reset(self) -> None:
+        super()._reset()
+        self._omp_seen: set[str] = set()
+
+    def _ingest(self, record: dict[str, Any]) -> None:
+        if record.get("type") == "session":
+            super()._ingest(record)
+            return
+        if record.get("type") != "message_end":
+            return
+        message = record.get("message")
+        if not isinstance(message, dict):
+            return
+        timestamp = message.get("timestamp")
+        key = str(message.get("responseId") or
+                  (message.get("role"), timestamp, message.get("toolCallId")))
+        if key in self._omp_seen:
+            return
+        self._omp_seen.add(key)
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp / 1000, UTC).isoformat()
+        if timestamp:
+            self.first_timestamp = self.first_timestamp or timestamp
+            self.last_timestamp = timestamp
+        self._ingest_message(key, message, timestamp)

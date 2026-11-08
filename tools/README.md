@@ -11,6 +11,9 @@ uv run rsiwatch <jobs-dir> --port 8420
 
 Then open <http://127.0.0.1:8420>.
 
+Terminus/Terminus-2 live ATIF snapshots (`agent/trajectory.json`) are also supported.
+The dashboard displays reasoning, commands, outputs, and token usage while they run.
+
 ## Why this exists
 
 Harbor ships `harbor view`, which is good — use it for finished jobs. But it
@@ -122,3 +125,31 @@ yourself:
 ```sh
 uv run pytest
 ```
+
+## Terminus and mini-swe-agent live traces
+
+RSIWatch reads Terminus ATIF snapshots and mini-swe-agent native JSON snapshots,
+including reasoning, commands, outputs, errors, and usage. Partially written JSON
+keeps the last complete view; rewritten snapshots do not duplicate events or usage.
+A live Terminus trajectory does not imply that verification has started.
+
+If Harbor keeps mini-swe-agent logs inside Docker until the trial ends, run a
+second process alongside RSIWatch to copy the live logs to the host:
+
+```sh
+uv run rsiwatch-sync /path/to/jobs --docker-context colima
+```
+
+Omit `--docker-context` for Docker's default connection (including Docker Desktop).
+The bridge only reads container files. It watches unfinished mini-swe-agent trials
+in `<jobs>/<job>/<trial>`, matches Harbor's `<trial-lowercase>__env-main-1` container
+name, and atomically copies native trajectory JSON and console output into the
+trial's `agent/` directory. It skips invalid/incomplete JSON and unchanged files.
+It does not handle other container names or remote environment providers.
+Use `--once` for one pass, `--interval SECONDS` to change the default 3-second
+poll, and Ctrl-C to stop. The bridge requires the Docker CLI and daemon.
+
+OMP stdout (`agent/omp.txt`) is also supported. The reader uses `message_end`
+events for reasoning, tools, results and cache-aware usage, and ignores repeated
+`turn_end`/`agent_end` copies. The Docker bridge supports `omp` and the official
+`omp_local:OmpLocal` adapter in addition to mini-swe-agent.

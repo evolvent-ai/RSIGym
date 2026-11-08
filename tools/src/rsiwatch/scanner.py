@@ -8,7 +8,8 @@ Layout this walks (`rsi_task/jobs/`):
           claude-code.txt        stream-json tee
           codex.txt              `codex exec --json` tee ← live for Codex trials
           pi/sessions/<stamp>_<id>.jsonl  ← live, what we tail for pi trials
-          trajectory.json        ATIF — written only after the trial ends
+          trajectory.json        ATIF — live for Terminus; otherwise often post-run
+          mini-swe-agent.trajectory.json  native mini-swe-agent snapshots
           sessions/projects/<cwd>/<session>.jsonl   ← live, what we tail for Claude Code
         verifier/                mounted empty at trial start
           test-stdout.txt        created when the verifier starts, for every agent
@@ -32,6 +33,9 @@ from pathlib import Path
 from typing import Any
 
 from rsiwatch.trajectory import (
+    AtifReader,
+    MiniSweReader,
+    OmpReader,
     CodexReader,
     CodexRolloutReader,
     PiReader,
@@ -125,6 +129,18 @@ class Trial:
                 self.session_path = self.agent_dir / "codex.txt"
                 self.reader = CodexReader(self.session_path, model=self.model_name)
                 changed = True
+            elif (self.agent_dir / "omp.txt").exists():
+                self.session_path = self.agent_dir / "omp.txt"
+                self.reader = OmpReader(self.session_path, model=self.model_name)
+                changed = True
+            elif (self.agent_dir / "mini-swe-agent.trajectory.json").exists():
+                self.session_path = self.agent_dir / "mini-swe-agent.trajectory.json"
+                self.reader = MiniSweReader(self.session_path, model=self.model_name)
+                changed = True
+            elif _is_atif(self.agent_dir / "trajectory.json"):
+                self.session_path = self.agent_dir / "trajectory.json"
+                self.reader = AtifReader(self.session_path)
+                changed = True
         elif self.session_path.name == "codex.txt":
             # Harbor copies the session out when the agent finishes; it carries the
             # timestamps and usage the stream lacks, so it takes over from there.
@@ -161,7 +177,10 @@ class Trial:
             # The ATIF check below only covers agents whose adapter writes a
             # trajectory (pi's does not).
             return "verifying"
-        if _is_atif(self.agent_dir / "trajectory.json"):
+        if (
+            self.agent_name not in ("terminus", "terminus-1", "terminus-2")
+            and _is_atif(self.agent_dir / "trajectory.json")
+        ):
             # Harbor converts the session to ATIF when the agent phase ends and
             # writes result.json only after the verifier — in between, the
             # verifier is running and the quiet session file is expected.
