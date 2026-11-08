@@ -16,6 +16,7 @@ dev = [
 
 [project.scripts]
 rsiwatch = "rsiwatch.__main__:main"
+rsiwatch-sync = "rsiwatch.sync:main"
 
 [build-system]
 requires = ["uv_build>=0.8.4,<0.9.0"]
